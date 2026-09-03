@@ -1,0 +1,56 @@
+services:
+
+  # Docker-in-Docker service.
+  # Jenkins connects to this isolated Docker daemon instead of mounting
+  # the host Docker socket directly.
+  docker:
+    image: docker:29-dind
+    container_name: isec6000-docker
+    privileged: true
+    restart: unless-stopped
+    environment:
+      # Enable TLS certificates for secure communication with Jenkins.
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      # Share only the generated client TLS certificates with Jenkins.
+      - jenkins-docker-certs:/certs/client
+      # Persist Docker build data between container restarts.
+      - jenkins-docker-data:/var/lib/docker
+    networks:
+      - jenkins-network
+
+  # Jenkins CI server.
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: isec6000-jenkins
+    restart: unless-stopped
+    depends_on:
+      - docker
+    environment:
+      # Jenkins communicates with the separate DinD daemon through TLS.
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
+    ports:
+      # Bind Jenkins only to localhost to reduce unnecessary network exposure.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Persist Jenkins configuration, jobs, credentials and build history.
+      - jenkins-data:/var/jenkins_home
+      # Jenkins only needs read access to Docker client certificates.
+      - jenkins-docker-certs:/certs/client:ro
+    networks:
+      - jenkins-network
+
+# Named volumes preserve Jenkins and Docker data across restarts.
+volumes:
+  jenkins-data:
+  jenkins-docker-certs:
+  jenkins-docker-data:
+
+# Dedicated internal network for communication between Jenkins and DinD.
+networks:
+  jenkins-network:
+    driver: bridge
