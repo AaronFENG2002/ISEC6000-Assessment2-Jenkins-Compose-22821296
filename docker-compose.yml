@@ -16,6 +16,9 @@ services:
       - jenkins-docker-certs:/certs/client
       # Persist Docker build data between container restarts.
       - jenkins-docker-data:/var/lib/docker
+      # Share only the Jenkins workspace so Docker-based build agents
+      # can access checked-out source code without exposing Jenkins secrets.
+      - jenkins-workspace:/var/jenkins_home/workspace
     networks:
       - jenkins-network
 
@@ -41,6 +44,8 @@ services:
       - jenkins-data:/var/jenkins_home
       # Jenkins only needs read access to Docker client certificates.
       - jenkins-docker-certs:/certs/client:ro
+      # Dedicated workspace volume shared with the Docker daemon.
+      - jenkins-workspace:/var/jenkins_home/workspace
     networks:
       - jenkins-network
 
@@ -49,6 +54,7 @@ volumes:
   jenkins-data:
   jenkins-docker-certs:
   jenkins-docker-data:
+  jenkins-workspace:
 
 # Dedicated internal network for communication between Jenkins and DinD.
 networks:
